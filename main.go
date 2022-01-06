@@ -49,13 +49,13 @@ func main() {
 	case "version":
 		fmt.Println("0.1")
 	case "help":
-		fmt.Print(`Доступные команды:
-	info [Путь к файл/папке] - Вывод информации о файле/папке если путь не устоновлен будет выведена информации о диске
-	help - Вывод сообщения этого сообщения
-	list - список файлов на диске
-	download [Путь к скачиваемому файлу] - скачать файл с диска
-	upload [Путь к загружаемому файл] - загрузить файл на диск
-	version - Версия прогграмы copy2cloud
+		fmt.Print(`Available commands:
+info [Path to file / folder] - Displays information about the file / folder if the path is not set, information about the disk will be displayed
+help - Display the message of this message
+list - list of files on disk
+download [Path to downloaded file] - download file from disk
+upload [Path to the uploaded file] - upload a file to disk
+version - The version of the copy2cloud program
 `)
 
 	default:
