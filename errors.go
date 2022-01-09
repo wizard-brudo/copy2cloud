@@ -23,6 +23,7 @@ var (
 	ERROR_PATH_NOT_EXISTS      = errors.New(setTextColor("Error:path doesn't exist", RED))
 	ERROR_NO_TOKEN             = errors.New(setTextColor("Error:no token", RED))
 	ERROR_TOO_MANY_ARGUMENTS   = errors.New(setTextColor("Error:too many arguments", RED))
+	ERROR_NO_RESOURCES         = errors.New(setTextColor("Error:no resources", RED))
 )
 
 func CheckResponse(response http.Response) error {

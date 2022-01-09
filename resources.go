@@ -1,5 +1,7 @@
 package main
 
+import "strings"
+
 type Resource struct {
 	Publickey        string            `json:"public_key"`
 	Embedded         ResourceList      `json:"_embedded"`
@@ -14,6 +16,16 @@ type Resource struct {
 	Type             string            `json:"type"`
 	MimeType         string            `json:"mime_type"`
 	Size             int               `json:"size"`
+}
+
+// Проверяет папка ли это
+func (res *Resource) isDir() bool {
+	return res.Type == "dir"
+}
+
+// Удаляет префикс disk у пути
+func (res *Resource) CorrectPath() string {
+	return strings.Replace(res.Path, "disk:/", "", 1)
 }
 
 type ResourceList struct {
