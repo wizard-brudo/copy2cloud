@@ -34,7 +34,7 @@ func isFlag(arg string) bool {
 	return false
 }
 
-func IsWritable(path string) (isWritable bool, err error) {
+func isWritableDir(path string) (isWritable bool, err error) {
 	var stat syscall.Stat_t
 	info, err := os.Stat(path)
 	if err != nil {
