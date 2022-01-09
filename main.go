@@ -142,7 +142,7 @@ func main() {
 		fmt.Println(ERROR_NOT_ENOUGH_ARGUMENTS)
 
 	case "version":
-		fmt.Println("0.1")
+		fmt.Println("0.2")
 	case "help":
 		fmt.Print(`Доступные команды:
 	info [Путь к файлу/папке] - Выводит информацию о файле/папке, если путь не задан, будет отображаться информация о диске
