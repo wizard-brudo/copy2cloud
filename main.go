@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 )
 
 func main() {
@@ -39,16 +38,6 @@ func main() {
 	}
 	// Потом смотрим что надо пользователю
 	switch os.Args[1] {
-	case "walk":
-		items := []Item{}
-		// Получаем все пути(пути папок и файлов в директории)
-		filepath.Walk("235", func(path string, info os.FileInfo, err error) error {
-			items = append(items, Item{ItemPath: path, Info: info, Err: err})
-			return nil
-		})
-		for _, item := range items {
-			fmt.Println(item.Info.Name())
-		}
 	case "info":
 		if len(os.Args) == 2 || len(os.Args) == 4 {
 			// выводим информацию о диске
