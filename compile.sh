@@ -1,0 +1,1 @@
+go build -o main main.go errors.go colors.go yadisk.go utils.go resources.go
