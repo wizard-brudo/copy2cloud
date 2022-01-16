@@ -17,12 +17,13 @@ func main() {
 	}
 	if utils.FlagExists("--get-token") {
 		// Если шаблоны существуют
-		if utils.SystemResourceExists("templates/index.html") == true && utils.SystemResourceExists("templates/token.html") == true {
+		if utils.SystemResourceExists(oauth2.Wd+"/templates/index.html") == true && utils.SystemResourceExists(oauth2.Wd+"/templates/token.html") == true {
 			// То получаем токен и выходим
 			oauth2.GetToken()
 			os.Exit(0)
 		} else {
 			fmt.Println(utils.NewError("Отсутствуют файлы шаблонов"))
+			os.Exit(1)
 		}
 	}
 	configFlag := utils.GetValueFlag("--config", "config.json")

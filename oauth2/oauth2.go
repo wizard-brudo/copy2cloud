@@ -15,18 +15,19 @@ import (
 
 var (
 	file, _               = os.Executable()
-	wd                    = filepath.Dir(file)
-	tmpl                  = template.Must(template.ParseGlob(wd + "/templates/*.html"))
+	Wd                    = filepath.Dir(file)
 	clientID              = "b15c740e54a84c3ab4dd30ba087e96d0"
 	encryptedClientSecret = "Th0QkghYdt6BWMqvTrzNpknFVv62WMvSRc4PIW-7xz5JgfCdV0cC-XKVgq3P9CNs"
 )
 
 func index(w http.ResponseWriter, r *http.Request) {
+	indexTemplate, _ := template.ParseFiles(Wd + "/templates/index.html")
 	url := fmt.Sprintf("https://oauth.yandex.ru/authorize?response_type=code&client_id=%s", clientID)
-	tmpl.ExecuteTemplate(w, "index.html", url)
+	indexTemplate.ExecuteTemplate(w, "index.html", url)
 }
 
 func token(w http.ResponseWriter, r *http.Request) {
+	tokenTemplate, _ := template.ParseFiles(Wd + "/templates/token.html")
 	client_secret, err := utils.MustReveal(encryptedClientSecret)
 	if err != nil {
 		fmt.Println(utils.NewError(err.Error()))
@@ -48,7 +49,7 @@ func token(w http.ResponseWriter, r *http.Request) {
 	}{}
 	json.Unmarshal(bytes, &token)
 	fmt.Println(token.AccessToken)
-	tmpl.ExecuteTemplate(w, "token.html", token.AccessToken)
+	tokenTemplate.ExecuteTemplate(w, "token.html", token.AccessToken)
 }
 
 func GetToken() {
