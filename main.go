@@ -77,7 +77,7 @@ func main() {
 	case "download":
 		diskClient.DownloadCommand()
 	case "version":
-		fmt.Println("0.4.6")
+		fmt.Println("0.4.1")
 	case "help":
 		fmt.Print(`Доступные команды:
 	info [Путь к файлу/папке] - Выводит информацию о файле/папке, 
