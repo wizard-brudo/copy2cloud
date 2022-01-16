@@ -1,6 +1,7 @@
 package main
 
 import (
+	"copy2cloud/oauth2"
 	"copy2cloud/utils"
 	"encoding/json"
 	"fmt"
@@ -12,6 +13,14 @@ func main() {
 	// Если нет аргументов выдаём ошибку
 	if len(os.Args) < 2 {
 		fmt.Println(utils.NewError(utils.ERROR_ARGUMENTS))
+		os.Exit(1)
+	}
+	if utils.FlagExists("--get-token") && utils.SystemResourceExists("templates/index.html") && utils.SystemResourceExists("templates/token.html") {
+		// Получаем токен и выходим
+		oauth2.GetToken()
+		os.Exit(0)
+	} else {
+		fmt.Println(utils.NewError("Отсуствуют файлы шаблонов"))
 		os.Exit(1)
 	}
 	configFlag := utils.GetValueFlag("--config", "config.json")
@@ -88,6 +97,7 @@ func main() {
 	overwrite [true,false] - флаг перезаписи ресурса.
 	permanently [true,false] - флаг безвозвратного удаления
 	by-type - флаг указывает на то что нужно искать по типу
+	get-token - Получить токен
 	config - имя конфигурационого файла.
 `)
 

@@ -31,7 +31,7 @@ func (client *ApiClient) SendRequest(method, apiPage string) ([]byte, int, error
 	req, err := http.NewRequest(
 		method, client.BaseUrl+apiPage, nil,
 	)
-	// Добовляем заголовки
+	// Добавляем заголовки
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Authorization", "OAuth "+client.Token)
 	// Делаем запрос
