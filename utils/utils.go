@@ -22,9 +22,14 @@ func SystemResourceExists(resourceName string) bool {
 	Аргумент Value это значение если flag не был найден
 */
 func GetValueFlag(flag string, value string) string {
+
 	for index, arg := range os.Args {
 		if arg == flag {
-			return os.Args[index+1]
+			// Если значение есть
+			if index+1 < len(os.Args) {
+				// То возращаем его
+				return os.Args[index+1]
+			}
 		}
 	}
 	// Если не нашли флаг

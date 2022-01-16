@@ -7,7 +7,6 @@ import (
 
 const (
 	ERROR_ARGUMENTS            = "Нет аргументов запуска"
-	ERROR_LOGIN                = "Неверное имя пользователя и/или пароль "
 	ERROR_UNKNOWN_ARGUMENT     = "Неизвестный аргумент "
 	ERROR_JSON                 = "Неправильный json "
 	ERROR_NOT_ENOUGH_ARGUMENTS = "Недостаточно аргументов "
@@ -30,7 +29,7 @@ func NewError(text string) error {
 	}
 	err := WriteLog(text)
 	if err != nil {
-		errorMessage += "\nОшибка: " + err.Error()
+		errorMessage += "\nОшибка при записи лога: " + err.Error()
 	}
 	return errors.New(SetTextColor("Ошибка: "+errorMessage, RED))
 }

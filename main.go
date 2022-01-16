@@ -27,34 +27,42 @@ func main() {
 		}
 	}
 	configFlag := utils.GetValueFlag("--config", "config.json")
-	confFile, err := utils.GetConfigFile(configFlag)
+	confFile, confErr := utils.GetConfigFile(configFlag)
+	tokenFlag := utils.GetValueFlag("--token", "")
 
-	// Если конфиг файла нет или в конфиг файле нет токена
-	if err != nil || confFile["token"] == "" {
-		// То получаем флаг токена
-		tokenFlag := utils.GetValueFlag("--token", "")
-		// Если флаг токена устоновлен
-		if tokenFlag != "" {
-			// То создаём карту с токеном
-			config := map[string]string{
-				"token": tokenFlag,
-				"log":   "copy2cloud.log",
-			}
-			// Создаём лог файл
-			logFile, err := os.Create("copy2cloud.log")
-			if err != nil {
-				fmt.Println(utils.NewError(err.Error()))
-			}
-			logFile.Close()
-			// Создаём конфиг
-			token = tokenFlag
-			newConfFile, _ := os.Create(configFlag)
-			data, _ := json.Marshal(config)
-			newConfFile.Write(data)
-			newConfFile.Close()
+	// Если нет конфиг файла
+	if confErr != nil {
+		// То создаём конфиг
+		config := map[string]string{
+			"token":    tokenFlag,
+			"log-file": "copy2cloud.log",
 		}
-	} else {
+		// Создаём лог файл
+		logFile, err := os.Create("copy2cloud.log")
+		if err != nil {
+			fmt.Println(utils.NewError(err.Error()))
+		}
+		logFile.Close()
+		// Создаём конфиг
+		token = tokenFlag
+		newConfFile, err := os.Create(configFlag)
+		if err != nil {
+			fmt.Println(utils.NewError(err.Error()))
+			os.Exit(1)
+		}
+		data, _ := json.MarshalIndent(config, "", "\t")
+		newConfFile.Write(data)
+		newConfFile.Close()
+	} else if tokenFlag == "" && confFile["token"] != "" {
+		fmt.Println(2)
+		// Если флаг токена не устоновлен и в конфиге есть токен то будем пользоваться им
 		token = confFile["token"]
+	} else if tokenFlag != "" && confFile["token"] == "" {
+		// Если флаг токена устоновлен и в конфиге нет токен то будем пользоваться токеном из флага
+		token = tokenFlag
+	} else {
+		fmt.Println(utils.NewError(confErr.Error()))
+		os.Exit(1)
 	}
 	diskClient := NewDiskClient(token)
 	// Потом смотрим что надо пользователю
