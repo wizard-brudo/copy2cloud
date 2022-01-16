@@ -9,27 +9,34 @@ import (
 
 func main() {
 	var token string
-	var configName string = "config.json"
 	// Если нет аргументов выдаём ошибку
 	if len(os.Args) < 2 {
-		fmt.Println(utils.ERROR_ARGUMENTS)
+		fmt.Println(utils.NewError(utils.ERROR_ARGUMENTS))
 		os.Exit(1)
 	}
 	configFlag := utils.GetValueFlag("--config", "config.json")
-	if configFlag != "config.json" {
-		configName = configFlag
-	}
-	confFile, err := utils.GetConfigFile(configName)
-	// Если конфигурационого файла нет или токен не устоновлен
+	confFile, err := utils.GetConfigFile(configFlag)
+
+	// Если конфиг файла нет или в конфиг файле нет токена
 	if err != nil || confFile["token"] == "" {
-		// Если есть флаг токена то ставим его значение  как токен
+		// То получаем флаг токена
 		tokenFlag := utils.GetValueFlag("--token", "")
+		// Если флаг токена устоновлен
 		if tokenFlag != "" {
+			// То создаём карту с токеном
 			config := map[string]string{
 				"token": tokenFlag,
+				"log":   "copy2cloud.log",
 			}
+			// Создаём лог файл
+			logFile, err := os.Create("copy2cloud.log")
+			if err != nil {
+				fmt.Println(utils.NewError(err.Error()))
+			}
+			logFile.Close()
+			// Создаём конфиг
 			token = tokenFlag
-			newConfFile, _ := os.Create("config.json")
+			newConfFile, _ := os.Create(configFlag)
 			data, _ := json.Marshal(config)
 			newConfFile.Write(data)
 			newConfFile.Close()
@@ -40,8 +47,12 @@ func main() {
 	diskClient := NewDiskClient(token)
 	// Потом смотрим что надо пользователю
 	switch os.Args[1] {
+	case "find":
+		diskClient.FindCommand()
 	case "move":
 		diskClient.MoveCommand()
+	case "trash":
+		diskClient.TrashCommand()
 	case "delete":
 		diskClient.DeleteCommand()
 	case "info":
@@ -55,7 +66,7 @@ func main() {
 	case "download":
 		diskClient.DownloadCommand()
 	case "version":
-		fmt.Println("0.3")
+		fmt.Println("0.4")
 	case "help":
 		fmt.Print(`Доступные команды:
 	info [Путь к файлу/папке] - Выводит информацию о файле/папке, 
@@ -67,16 +78,20 @@ func main() {
 	copy [Путь к копируемому ресурсу] [Путь к создаваемой копии ресурса] - копирование файла/папки на диске
 	move [Путь к перемещаемому ресурсу] [Путь к новому положению ресурса] - Перемещение файла/папки на диске
 	delete [Путь к удаляемому ресурсу] - Удаление файла/папки на диске
+	trash - Команды для работы с корзиной
+		clear [Путь к удаляемому ресурсу] - Удаление ресурса из корзины
+		restore [Путь к ресурсу который нужно восстоновить] - Восстоновить ресурс из корзины
 	version - Версия программы copy2cloud.
 Флаги:
 	token - токен,который нужен для работы с вашим яндекс диском.
 	style - стиль вывода списка файлов
 	overwrite [true,false] - флаг перезаписи ресурса.
 	permanently [true,false] - флаг безвозвратного удаления
+	by-type - флаг указывает на то что нужно искать по типу
 	config - имя конфигурационого файла.
 `)
 
 	default:
-		fmt.Println(utils.ERROR_UNKNOWN_ARGUMENT)
+		fmt.Println(utils.NewError(utils.ERROR_UNKNOWN_ARGUMENT))
 	}
 }

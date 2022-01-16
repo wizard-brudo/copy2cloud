@@ -2,6 +2,7 @@ package yandex
 
 import "strings"
 
+// Описание ресурса, мета-информация о файле или папке. Включается в ответ на запрос метаинформации.
 type Resource struct {
 	Publickey        string            `json:"public_key"`
 	Embedded         ResourceList      `json:"_embedded"`
@@ -23,11 +24,16 @@ func (res *Resource) IsDir() bool {
 	return res.Type == "dir"
 }
 
-// Удаляет префикс disk у пути
+// Удаляет префикс disk или trash у пути
 func (res *Resource) CorrectPath() string {
-	return strings.Replace(res.Path, "disk:/", "", 1)
+	if strings.Contains(res.Path, "disk") {
+		return strings.Replace(res.Path, "disk:", "", 1)
+	} else {
+		return strings.Replace(res.Path, "trash:", "", 1)
+	}
 }
 
+// Список ресурсов, содержащихся в папке. Содержит объекты Resource и свойства списка.
 type ResourceList struct {
 	Sort      string     `json:"sort"`
 	PublicKey string     `json:"public_key"`
@@ -38,25 +44,20 @@ type ResourceList struct {
 	Total     int        `json:"total"`
 }
 
+// Плоский список всех файлов на Диске в алфавитном порядке.
 type FilesResourceList struct {
-	Items []struct {
-		Name     string `json:"name"`
-		Created  string `json:"created"`
-		Modified string `json:"modified"`
-		Path     string `json:"path"`
-		Type     string `json:"type"`
-		MimeType string `json:"mime_type"`
-		Size     int    `json:"size"`
-	} `json:"items"`
-	Limit  int `json:"limit"`
-	Offset int `json:"offset"`
+	Items  []Resource `json:"items"`
+	Limit  int        `json:"limit"`
+	Offset int        `json:"offset"`
 }
 
+// Список последних добавленных на Диск файлов, отсортированных по дате загрузки (от поздних к ранним).
 type LastUploadedResourceList struct {
 	Items []Resource `json:"items"`
 	Limit int        `json:"limit"`
 }
 
+// Список опубликованных файлов на Диске.
 type PublicResourcesList struct {
 	Items  []Resource `json:"items"`
 	Type   string     `json:"type"`
@@ -64,6 +65,7 @@ type PublicResourcesList struct {
 	Offset int        `json:"offset"`
 }
 
+// Данные о свободном и занятом пространстве на Диске
 type Disk struct {
 	User          map[string]string `json:"user"`
 	TrashSize     float64           `json:"trash_size"`
@@ -72,12 +74,14 @@ type Disk struct {
 	SystemFolders map[string]string `json:"system_folders"`
 }
 
+// Объект содержит URL для запроса метаданных ресурса.
 type Link struct {
 	Href      string `json:"href"`
 	Method    string `json:"method"`
 	Templated bool   `json:"templated"`
 }
 
+// Ошибка при обработке запроса
 type ErrorApi struct {
 	Description string `json:"description"`
 	Error       string `json:"error"`

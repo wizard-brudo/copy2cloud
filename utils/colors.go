@@ -7,6 +7,6 @@ const (
 	RESET  = "\u001b[0m"
 )
 
-func setTextColor(text, color string) string {
+func SetTextColor(text, color string) string {
 	return color + text + RESET
 }

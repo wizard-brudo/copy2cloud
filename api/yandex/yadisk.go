@@ -3,7 +3,6 @@ package yandex
 import (
 	"copy2cloud/utils"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -12,13 +11,14 @@ import (
 	"strings"
 )
 
+// Проверяет ответ от  yandex api
 func (c *ApiClient) CheckResponse(response http.Response) error {
 	if response.StatusCode >= 400 {
 		errApi := ErrorApi{}
 		body_byte, _ := ioutil.ReadAll(response.Body)
 		err := json.Unmarshal(body_byte, &errApi)
 		if err != nil {
-			return utils.ERROR_JSON
+			return utils.NewError(utils.ERROR_JSON)
 		}
 		return utils.NewError(errApi.Message)
 	}
@@ -42,7 +42,7 @@ func (client *ApiClient) SendRequest(method, apiPage string) ([]byte, int, error
 	// Проверяем ответ
 	check_error := client.CheckResponse(*resp)
 	if check_error != nil {
-		return nil, -1, check_error
+		return nil, -2, check_error
 	}
 	// Читаем ответ(переводим в массив байтов)
 	body, _ := io.ReadAll(resp.Body)
@@ -50,23 +50,25 @@ func (client *ApiClient) SendRequest(method, apiPage string) ([]byte, int, error
 	return body, resp.StatusCode, nil
 }
 
+// Создаёт и возращает структуру YandexDisk(нужна для работы с яндекс диском)
 func NewYandexDisk(token string) (YandexDisk, error) {
 	if token == "" {
-		return YandexDisk{}, utils.ERROR_NO_TOKEN
+		return YandexDisk{}, utils.NewError(utils.ERROR_NO_TOKEN)
 	}
 	newApiClient := ApiClient{
 		HttpClient: http.Client{},
 		Token:      token,
-		BaseUrl:    "https://cloud-api.yandex.net/v1/",
+		BaseUrl:    "https://cloud-api.yandex.net/v1/disk/",
 	}
 	return YandexDisk{
 		ApiClient: newApiClient,
 	}, nil
 }
 
-func (yadisk *YandexDisk) GetMetaInformation(resourcePath string) (Resource, error) {
+// Возвращает мета-информация о ресурсе в корзине
+func (yadisk *YandexDisk) GetTrashResource(resourcePath string) (Resource, error) {
 	resource := Resource{}
-	response, _, err := yadisk.ApiClient.SendRequest("GET", "disk/resources?path="+url.QueryEscape(resourcePath))
+	response, _, err := yadisk.ApiClient.SendRequest("GET", "trash/resources?path="+url.QueryEscape(resourcePath))
 	if err != nil {
 		return resource, err
 	}
@@ -74,9 +76,21 @@ func (yadisk *YandexDisk) GetMetaInformation(resourcePath string) (Resource, err
 	return resource, nil
 }
 
-func (yadisk *YandexDisk) GetListFiles() (FilesResourceList, error) {
+// Возвращает мета-информация о ресурсе на диске
+func (yadisk *YandexDisk) GetResource(resourcePath string) (Resource, error) {
+	resource := Resource{}
+	response, _, err := yadisk.ApiClient.SendRequest("GET", "resources?path="+url.QueryEscape(resourcePath))
+	if err != nil {
+		return resource, err
+	}
+	json.Unmarshal(response, &resource)
+	return resource, nil
+}
+
+// Возращает список всех файлов на диске
+func (yadisk *YandexDisk) GetListFiles(mediaType string) (FilesResourceList, error) {
 	listFiles := FilesResourceList{}
-	response, _, err := yadisk.ApiClient.SendRequest("GET", "disk/resources/files")
+	response, _, err := yadisk.ApiClient.SendRequest("GET", "resources/files?media_type="+mediaType)
 	if err != nil {
 		return listFiles, err
 	}
@@ -84,9 +98,10 @@ func (yadisk *YandexDisk) GetListFiles() (FilesResourceList, error) {
 	return listFiles, nil
 }
 
+// Возращает все ресурсы в указанной директории на диске
 func (yadisk *YandexDisk) GetAllResources(rootPath string) ([]Resource, error) {
 	resources := []Resource{}
-	yaDiskResources, err := yadisk.GetMetaInformation(rootPath)
+	yaDiskResources, err := yadisk.GetResource(rootPath)
 	if err != nil {
 		return nil, err
 	}
@@ -107,6 +122,7 @@ func (yadisk *YandexDisk) GetAllResources(rootPath string) ([]Resource, error) {
 
 }
 
+// Возрашает yandex ссылку(объект содержит ссылку для запроса метаданных)
 func (yadisk *YandexDisk) GetLink(method string, apiUrl string, urlParameters url.Values) (Link, error) {
 	link := Link{}
 	apiResponse, StatusCode, rqError := yadisk.ApiClient.SendRequest(method, apiUrl+"?"+urlParameters.Encode())
@@ -118,64 +134,105 @@ func (yadisk *YandexDisk) GetLink(method string, apiUrl string, urlParameters ur
 	return link, rqError
 }
 
+// Создаёт директорию
 func (yadisk *YandexDisk) CreateDir(dirname string) (Link, error) {
 	urlValues := url.Values{}
 	urlValues.Add("path", dirname)
-	createDir, err := yadisk.GetLink("PUT", "disk/resources", urlValues)
+	createDir, err := yadisk.GetLink("PUT", "resources", urlValues)
 	if err != nil {
 		return createDir, err // CreateDir в данном случае пустой
 	}
 	return createDir, nil
 }
 
+// Копирует ресурс из одного места(from) в другое(path)
 func (yadisk *YandexDisk) CopyResource(from, path, overwrite string) (Link, error) {
 	urlValues := url.Values{}
 	urlValues.Add("from", from)
 	urlValues.Add("path", path)
 	urlValues.Add("overwrite", overwrite)
-	copyResource, err := yadisk.GetLink("POST", "disk/resources/copy", urlValues)
+	copyResource, err := yadisk.GetLink("POST", "resources/copy", urlValues)
 	if err != nil {
 		return copyResource, err // copyResource  пустой
 	}
 	return copyResource, nil
 }
 
+// Удаляет ресурс заданному пути(path)
 func (yadisk *YandexDisk) DeleteResource(path, permanently string) (Link, error) {
 	urlValues := url.Values{}
 	urlValues.Add("path", path)
 	urlValues.Add("permanently", permanently)
-	deleteResource, err := yadisk.GetLink("DELETE", "disk/resources", urlValues)
+	deleteResource, err := yadisk.GetLink("DELETE", "resources", urlValues)
 	if err != nil {
 		return deleteResource, err // copyResource  пустой
 	}
 	return deleteResource, nil
 }
 
+// Удаляет ресурс в корзине по заданному пути
+func (yadisk *YandexDisk) ClearTrash(path string) (Link, error) {
+	urlValues := url.Values{}
+	urlValues.Add("path", path)
+	clearTrash, err := yadisk.GetLink("DELETE", "trash/resources", urlValues)
+	if err != nil {
+		return clearTrash, err // clearTrash  пустой
+	}
+	return clearTrash, nil
+}
+
+func (yadisk *YandexDisk) Find(rootPath, name string) (Resource, error) {
+	listResources, err := yadisk.GetAllResources(rootPath)
+	if err != nil {
+		return Resource{}, err
+	}
+	for _, resource := range listResources {
+		if resource.Name == name {
+			return resource, nil
+		}
+	}
+	return Resource{}, err // Если мы сюда дошли мы нечего не нашли и возращаем пустой resource
+}
+
+// Восстанавливает ресурс в корзине по заданному пути
+func (yadisk *YandexDisk) RestoreTrash(path, overwrite string) (Link, error) {
+	urlValues := url.Values{}
+	urlValues.Add("path", path)
+	urlValues.Add("overwrite", overwrite)
+	restoreTrash, err := yadisk.GetLink("PUT", "trash/resources/restore", urlValues)
+	if err != nil {
+		return restoreTrash, err // copyResource  пустой
+	}
+	return restoreTrash, nil
+}
+
+// Перемещает ресурс из одного места(from) в другое(path)
 func (yadisk *YandexDisk) MoveResource(from, path, overwrite string) (Link, error) {
 	urlValues := url.Values{}
 	urlValues.Add("from", from)
 	urlValues.Add("path", path)
 	urlValues.Add("overwrite", overwrite)
-	moveResource, err := yadisk.GetLink("POST", "disk/resources/move", urlValues)
+	moveResource, err := yadisk.GetLink("POST", "resources/move", urlValues)
 	if err != nil {
 		return moveResource, err // moveResource пустой
 	}
 	return moveResource, nil
 }
 
+//	Проверяет существует ли ресурс на диске
 func (yadisk *YandexDisk) ResourceExists(resourceName string) bool {
-	_, err := yadisk.GetMetaInformation(resourceName)
-	if err != nil {
+	if _, err := yadisk.GetResource(resourceName); err != nil {
 		return false
 	}
 	return true
 }
 
+// Скачивает файл с диска
 func (yadisk *YandexDisk) DownloadFile(filepath, overwrite string) error {
 	urlValues := url.Values{}
 	urlValues.Add("path", filepath)
 	urlValues.Add("overwrite", overwrite)
-	downloadLink, LinkErr := yadisk.GetLink("GET", "disk/resources/download", urlValues)
+	downloadLink, LinkErr := yadisk.GetLink("GET", "resources/download", urlValues)
 	if LinkErr != nil {
 		return LinkErr
 	}
@@ -193,39 +250,39 @@ func (yadisk *YandexDisk) DownloadFile(filepath, overwrite string) error {
 	return nil
 }
 
-func (yadisk *YandexDisk) UploadFile(filepath, overwrite string) error {
-	fmt.Println("Идёт загрузка " + filepath)
+// Загрузжает системный ресурс на yandex disk
+func (yadisk *YandexDisk) UploadFile(filepath, overwrite string) (int, error) {
 	urlValues := url.Values{}
 	urlValues.Add("overwrite", overwrite)
 	urlValues.Add("path", filepath)
-	uploadLink, uploadErr := yadisk.GetLink("GET", "disk/resources/upload", urlValues)
+	uploadLink, uploadErr := yadisk.GetLink("GET", "resources/upload", urlValues)
 	if uploadErr != nil {
-		return uploadErr
+		return -1, uploadErr
 	}
 	file, fileErr := os.Open(filepath)
 	if fileErr != nil {
-		return fileErr
+		return -2, fileErr
 	}
 	rq, errRq := http.NewRequest("PUT", uploadLink.Href, file)
 	if errRq != nil {
-		return errRq
+		return -3, errRq
 	}
 	resp, errRqDo := yadisk.ApiClient.HttpClient.Do(rq)
 	if errRqDo != nil {
-		return errRqDo
+		return -4, errRqDo
 	}
 	// Обробатываем ошибки
 	switch resp.StatusCode {
 	case 412:
-		return utils.NewError("при дозагрузке файла был передан неверный диапазон в заголовке Content-Range.")
+		return resp.StatusCode, utils.NewError("при дозагрузке файла был передан неверный диапазон в заголовке Content-Range.")
 	case 413:
-		return utils.NewError("размер файла превышает 10 ГБ.")
+		return resp.StatusCode, utils.NewError("размер файла превышает 10 ГБ.")
 	case 500:
 	case 503:
-		return utils.NewError("ошибка сервера, попробуйте повторить загрузку.")
+		return resp.StatusCode, utils.NewError("ошибка сервера, попробуйте повторить загрузку.")
 	case 507:
-		return utils.NewError("для загрузки файла не хватает места на Диске")
+		return resp.StatusCode, utils.NewError("для загрузки файла не хватает места на Диске")
 	}
 	file.Close()
-	return nil
+	return resp.StatusCode, nil
 }

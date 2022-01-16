@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/tabwriter"
 )
 
@@ -26,33 +27,29 @@ type DiskClient struct {
 }
 
 func (dclient *DiskClient) ListCommand() {
-	listFiles, err := dclient.yadisk.GetListFiles()
+	listFiles, err := dclient.yadisk.GetListFiles("")
 	if err != nil {
 		fmt.Println(utils.NewError(err.Error()))
 		os.Exit(1)
 	}
 	// Флаг стиля выведения файлов
 	style := utils.GetValueFlag("--style", "1")
-	w := tabwriter.NewWriter(os.Stdout, 15, 0, 1, ' ', 0)
+	w := tabwriter.NewWriter(os.Stdout, 10, 0, 1, ' ', 0)
 	if style == "1" {
-		fmt.Fprintln(w, "ИМЯ\t\t\tРАЗМЕР(В байтах)\t\t\tДАТА СОЗДАНИЯ")
+		fmt.Fprintln(w, "ПУТЬ\t\t\tРАЗМЕР(В байтах)\t\t\tДАТА СОЗДАНИЯ")
 	}
 	for _, item := range listFiles.Items {
 		// 1 вариант(Таблица)
 		if style == "1" {
-			fmt.Fprintf(w, "%s\t\t\t%d\t\t\t%s\n", item.Name, item.Size, item.Created)
+			fmt.Fprintf(w, "%s\t\t\t%d\t\t\t%s\n", strings.Replace(item.Path, "disk:/", "", 1), item.Size, item.Created)
 		} else if style == "2" {
 			// 2 Вариант
 			fmt.Println("-----------------------------------------------")
-			fmt.Println("Имя:", item.Name)
-			fmt.Println("Дата создания:", item.Created)
-			fmt.Println("Дата модификации:", item.Modified)
-			fmt.Println("Путь(на диске):", item.Path)
-			fmt.Println("Тип:", item.Type)
-			fmt.Println("Мим-тип:", item.MimeType)
+			// Вывод информации о ресурсе
+			dclient.printResourceFields(item)
 			fmt.Println("-----------------------------------------------")
 		} else {
-			fmt.Println(utils.ERROR_UNKOWN_STYLE)
+			fmt.Println(utils.NewError(utils.ERROR_UNKOWN_STYLE))
 			os.Exit(1)
 		}
 	}
@@ -62,9 +59,107 @@ func (dclient *DiskClient) ListCommand() {
 	}
 }
 
+// Вывод Ресурса
+func (dclient *DiskClient) printResourceFields(resource yandex.Resource) {
+	if resource.PublicUrl == "" {
+		resource.PublicUrl = "Нет"
+	}
+	if resource.MimeType == "" {
+		resource.MimeType = "Неизвестен"
+	}
+	fmt.Printf(`Имя: %s
+Дата модификации: %s
+Cсылка на ресурс: %s
+Путь: %s
+Тип: %s
+Мим-тип: %s
+Размер: %d
+`, resource.Name,
+		resource.Modified,
+		resource.PublicUrl,
+		resource.CorrectPath(),
+		resource.Type,
+		resource.MimeType,
+		resource.Size)
+	if len(resource.Embedded.Items) > 0 {
+		fmt.Println("Содержит:")
+		w := tabwriter.NewWriter(os.Stdout, 10, 0, 1, ' ', 0)
+		fmt.Fprintln(w, "\tПУТЬ\t\tДАТА СОЗДАНИЯ")
+		for _, item := range resource.Embedded.Items {
+			fmt.Fprintf(w, "\t%s\t\t%s\n", item.CorrectPath(), item.Created)
+		}
+		w.Flush()
+	}
+}
+
+func (dclient *DiskClient) FindCommand() {
+	if len(os.Args) < 4 {
+		fmt.Println(utils.NewError(utils.ERROR_NOT_ENOUGH_ARGUMENTS))
+		os.Exit(1)
+	}
+	if utils.FlagExists("--by-type") == true {
+		listFiles, errList := dclient.yadisk.GetListFiles(os.Args[2])
+		if errList != nil {
+			fmt.Println(utils.NewError(errList.Error()))
+			os.Exit(1)
+		}
+		for _, resource := range listFiles.Items {
+			fmt.Println("---------------------------------------------------------------")
+			dclient.printResourceFields(resource)
+			fmt.Println("---------------------------------------------------------------")
+		}
+	} else {
+		desiredResource, err := dclient.yadisk.Find(os.Args[2], os.Args[3])
+		if err != nil {
+			fmt.Println(utils.NewError(err.Error()))
+			os.Exit(1)
+		}
+		dclient.printResourceFields(desiredResource)
+	}
+}
+
+func (dclient *DiskClient) TrashCommand() {
+	if len(os.Args) > 2 {
+		if os.Args[2] == "clear" {
+			_, errClear := dclient.yadisk.ClearTrash(os.Args[3])
+			if errClear != nil {
+				fmt.Println(utils.NewError(errClear.Error()))
+				os.Exit(1)
+			}
+			fmt.Println("Ресурс удалён из корзины")
+		} else if os.Args[2] == "restore" {
+			_, errRestore := dclient.yadisk.RestoreTrash(os.Args[3], utils.GetValueFlag("--overwrite", "false"))
+			if errRestore != nil {
+				fmt.Println(utils.NewError(errRestore.Error()))
+				os.Exit(1)
+			}
+			fmt.Println("Ресурс восстановлен из корзины")
+		} else if os.Args[2] == "info" {
+			if len(os.Args) > 3 {
+				resource, errInfo := dclient.yadisk.GetTrashResource(os.Args[3])
+				if errInfo != nil {
+					fmt.Println(utils.NewError(errInfo.Error()))
+					os.Exit(1)
+				}
+				// Вывод информации о ресурсе
+				dclient.printResourceFields(resource)
+			} else {
+				fmt.Println(utils.NewError(utils.ERROR_NOT_ENOUGH_ARGUMENTS))
+				os.Exit(1)
+			}
+		} else {
+			fmt.Println(utils.NewError("неизвестная команда"))
+			os.Exit(1)
+		}
+	} else {
+		fmt.Println(utils.NewError(utils.ERROR_NOT_ENOUGH_ARGUMENTS))
+		os.Exit(1)
+	}
+}
+
 func (dclient *DiskClient) DownloadCommand() {
 	if len(os.Args) < 3 {
-		fmt.Println(utils.ERROR_NOT_ENOUGH_ARGUMENTS)
+		fmt.Println(utils.NewError(utils.ERROR_NOT_ENOUGH_ARGUMENTS))
 		os.Exit(1)
 	}
 	dclient.Download(os.Args[2], utils.GetValueFlag("--overwrite", "false"))
@@ -74,7 +169,7 @@ func (dclient *DiskClient) InfoCommand() {
 	if len(os.Args) == 2 || len(os.Args) == 4 {
 		// выводим информацию о диске
 		diskInfo := yandex.Disk{}
-		response, _, err := dclient.yadisk.ApiClient.SendRequest("GET", "disk/")
+		response, _, err := dclient.yadisk.ApiClient.SendRequest("GET", "")
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -93,33 +188,18 @@ func (dclient *DiskClient) InfoCommand() {
 			fmt.Printf("	%s  %s\n", folderName, path)
 		}
 	} else if len(os.Args) >= 3 {
-		resource, err := dclient.yadisk.GetMetaInformation(os.Args[2])
+		resource, err := dclient.yadisk.GetResource(os.Args[2])
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		fmt.Println("Имя:", resource.Name)
-		fmt.Println("Дата модификации:", resource.Modified)
-		fmt.Println("Cсылка на ресурс:", resource.PublicUrl)
-		fmt.Println("Путь:", resource.Path)
-		fmt.Println("Тип:", resource.Type)
-		fmt.Println("Мим-тип:", resource.MimeType)
-		fmt.Println("Размер:", resource.Size)
-		if len(resource.Embedded.Items) > 0 {
-			fmt.Println("Содержит:")
-			w := tabwriter.NewWriter(os.Stdout, 15, 0, 1, ' ', 0)
-			fmt.Fprintln(w, "\tИМЯ\t\tРАЗМЕР(В байтах)\t\tДАТА СОЗДАНИЯ")
-			for _, item := range resource.Embedded.Items {
-				fmt.Fprintf(w, "\t%s\t\t%d\t\t%s\n", item.Name, item.Size, item.Created)
-			}
-			w.Flush()
-		}
+		dclient.printResourceFields(resource)
 	}
 }
 
 func (dclient *DiskClient) UploadCommand() {
 	if len(os.Args) < 3 {
-		fmt.Println(utils.ERROR_NOT_ENOUGH_ARGUMENTS)
+		fmt.Println(utils.NewError(utils.ERROR_NOT_ENOUGH_ARGUMENTS))
 		os.Exit(1)
 	}
 	overwriteFlag := utils.GetValueFlag("--overwrite", "false")
@@ -128,7 +208,7 @@ func (dclient *DiskClient) UploadCommand() {
 
 func (dclient *DiskClient) CopyCommand() {
 	if len(os.Args) < 4 {
-		fmt.Println(utils.ERROR_NOT_ENOUGH_ARGUMENTS)
+		fmt.Println(utils.NewError(utils.ERROR_NOT_ENOUGH_ARGUMENTS))
 		os.Exit(1)
 	}
 	_, copyErr := dclient.yadisk.CopyResource(os.Args[2], os.Args[3], utils.GetValueFlag("--overwrite", "false"))
@@ -140,7 +220,7 @@ func (dclient *DiskClient) CopyCommand() {
 }
 
 func (dclient *DiskClient) Download(resourcePath, overwrite string) {
-	mainResource, err := dclient.yadisk.GetMetaInformation(resourcePath)
+	mainResource, err := dclient.yadisk.GetResource(resourcePath)
 	if err != nil {
 		fmt.Println(utils.NewError(err.Error()))
 		os.Exit(1)
@@ -169,14 +249,14 @@ func (dclient *DiskClient) Download(resourcePath, overwrite string) {
 			dclient.yadisk.DownloadFile(resourcePath, overwrite)
 		}
 	} else {
-		fmt.Println(utils.ERROR_RESOURCE_EXISTS)
+		fmt.Println(utils.NewError(utils.ERROR_NOT_ENOUGH_ARGUMENTS))
 		os.Exit(1)
 	}
 }
 
 func (dclient *DiskClient) MoveCommand() {
 	if len(os.Args) < 4 {
-		fmt.Println(utils.ERROR_NOT_ENOUGH_ARGUMENTS)
+		fmt.Println(utils.NewError(utils.ERROR_NOT_ENOUGH_ARGUMENTS))
 		os.Exit(1)
 	}
 	_, moveErr := dclient.yadisk.MoveResource(os.Args[2], os.Args[3], utils.GetValueFlag("--overwrite", "false"))
@@ -189,7 +269,7 @@ func (dclient *DiskClient) MoveCommand() {
 
 func (dclient *DiskClient) DeleteCommand() {
 	if len(os.Args) < 3 {
-		fmt.Println(utils.ERROR_NOT_ENOUGH_ARGUMENTS)
+		fmt.Println(utils.NewError(utils.ERROR_NOT_ENOUGH_ARGUMENTS))
 		os.Exit(1)
 	}
 	_, deleteErr := dclient.yadisk.DeleteResource(os.Args[2], utils.GetValueFlag("--permanently", "false"))
@@ -210,17 +290,17 @@ func (dclient *DiskClient) Upload(resourceName, overwrite string) {
 	// Мы загрузжаем ресурсы,если ресурса не существует на диске или указан флаг --overwrite true
 	if isYaDiskResourceExists == false || overwrite == "true" {
 		if isDir == true {
-			resources := []yandex.OsResource{}
+			dirResources := []yandex.OsResource{}
 			// Получаем все пути(пути папок и файлов в директории)
 			filepath.Walk(resourceName, func(path string, info os.FileInfo, _ error) error {
-				resources = append(resources, yandex.OsResource{ItemPath: path, Info: info})
+				dirResources = append(dirResources, yandex.OsResource{ItemPath: path, Info: info})
 				return nil
 			})
 			// Если в папке что то есть то загружаем папку
 			// иначе просто создаём папку
-			if len(resources) > 0 {
+			if len(dirResources) > 0 {
 				// Проходимся по списку ресурсов полученные через filepath.Walk
-				for _, resource := range resources {
+				for _, resource := range dirResources {
 					// Если это папка то создаём папку
 					if resource.Info.IsDir() {
 						_, DirError := dclient.yadisk.CreateDir(resource.ItemPath)
@@ -230,8 +310,12 @@ func (dclient *DiskClient) Upload(resourceName, overwrite string) {
 							os.Exit(1)
 						}
 					} else {
+						fmt.Println("Идёт загрузка ", resource.ItemPath)
 						// Иначе это файл и загрузжаем его
-						UploadError := dclient.yadisk.UploadFile(resource.ItemPath, overwrite)
+						StatusCode, UploadError := dclient.yadisk.UploadFile(resource.ItemPath, overwrite)
+						if utils.FlagExists("--verbose") == true {
+							fmt.Println("Статус операции:", StatusCode)
+						}
 						if UploadError != nil {
 							fmt.Println(utils.NewError(UploadError.Error()))
 							os.Exit(1)
@@ -241,7 +325,11 @@ func (dclient *DiskClient) Upload(resourceName, overwrite string) {
 			}
 		} else {
 			// Если это просто файл то загрузжаем его
-			UploadError := dclient.yadisk.UploadFile(resourceName, overwrite)
+			fmt.Println("Идёт загрузка ресурса", resourceName)
+			StatusCode, UploadError := dclient.yadisk.UploadFile(resourceName, overwrite)
+			if utils.FlagExists("--verbose") == true {
+				fmt.Println("Статус операции:", StatusCode)
+			}
 			if UploadError != nil {
 				fmt.Println(utils.NewError(UploadError.Error()))
 				os.Exit(1)
