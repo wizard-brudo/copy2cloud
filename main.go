@@ -56,7 +56,7 @@ func main() {
 		}
 		bytes, _ := json.MarshalIndent(config, "", "\t")
 		if utils.FlagExists("--verbose") == true {
-			fmt.Println("Создаётся конфига в файл")
+			fmt.Println("Запись конфигурации в файл")
 		}
 		newConfFile.Write(bytes)
 		newConfFile.Close()
@@ -83,27 +83,26 @@ func main() {
 			fmt.Println(utils.NewError(err.Error()))
 		}
 		bytes, _ := json.MarshalIndent(config, "", "\t")
-		_, errw := configFile.Write(bytes)
-		fmt.Println(errw)
+		configFile.Write(bytes)
 		configFile.Close()
 	} else if tokenFlag != "" && mainConfig["token"] != "" {
 		// Если есть токены и в и в конфиге есть что-то
+		// То приоритет отдаём флагу
+		if utils.FlagExists("--verbose") == true {
+			fmt.Println("Устоновка токена из флага и обновление токена в конфигурации")
+		}
 		config, _ := utils.GetConfigFile(configFlag)
 		token = tokenFlag
 		if config["token"] != tokenFlag {
-			if utils.FlagExists("--verbose") == true {
-				fmt.Println("Обновление токена из конфигурационного файла")
-			}
 			config["token"] = tokenFlag
 
-			// Удаляем файл
+			// Очищаем и открываем файл
 			configFile, err := os.OpenFile(configFlag, os.O_TRUNC|os.O_RDWR, os.ModePerm)
 			if err != nil {
 				fmt.Println(utils.NewError(err.Error()))
 			}
 			bytes, _ := json.MarshalIndent(config, "", "\t")
-			_, errW := configFile.Write(bytes)
-			fmt.Println(errW)
+			configFile.Write(bytes)
 			configFile.Close()
 
 		}

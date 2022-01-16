@@ -222,6 +222,9 @@ func (dclient *DiskClient) CopyCommand() {
 }
 
 func (dclient *DiskClient) Download(resourcePath, overwrite string) {
+	if utils.FlagExists("--verbose") == true {
+		fmt.Println("Получение информации о ресурсе")
+	}
 	mainResource, err := dclient.yadisk.GetResource(resourcePath)
 	if err != nil {
 		fmt.Println(utils.NewError(err.Error()))
@@ -232,6 +235,9 @@ func (dclient *DiskClient) Download(resourcePath, overwrite string) {
 		if mainResource.IsDir() {
 			fmt.Println("Создание главной папки", mainResource.CorrectPath())
 			os.Mkdir(mainResource.CorrectPath(), os.ModePerm)
+			if utils.FlagExists("--verbose") == true {
+				fmt.Println("Получение информации о ресурсах в папках")
+			}
 			items, err := dclient.yadisk.GetAllResources(mainResource.Path)
 			if err != nil {
 				fmt.Println(utils.NewError(err.Error()))
