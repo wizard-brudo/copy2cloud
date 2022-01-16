@@ -17,7 +17,7 @@ func main() {
 	}
 	if utils.FlagExists("--get-token") {
 		// Если шаблоны существуют
-		if utils.SystemResourceExists(oauth2.Wd+"/templates/index.html") == true && utils.SystemResourceExists(oauth2.Wd+"/templates/token.html") == true {
+		if utils.SystemResourceExists(utils.Wd+"/templates/index.html") == true && utils.SystemResourceExists(oauth2.Wd+"/templates/token.html") == true {
 			// То получаем токен и выходим
 			oauth2.GetToken()
 			os.Exit(0)
@@ -26,43 +26,89 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	configFlag := utils.GetValueFlag("--config", "config.json")
-	confFile, confErr := utils.GetConfigFile(configFlag)
+	configFlag := utils.GetValueFlag("--config", utils.Wd+"/config.json")
+	mainConfig, confErr := utils.GetConfigFile(configFlag)
 	tokenFlag := utils.GetValueFlag("--token", "")
-
 	// Если нет конфиг файла
 	if confErr != nil {
+		if utils.FlagExists("--verbose") == true {
+			fmt.Println("Создаётся конфигурационный файл")
+		}
+		token = tokenFlag
 		// То создаём конфиг
 		config := map[string]string{
 			"token":    tokenFlag,
-			"log-file": "copy2cloud.log",
+			"log-file": utils.Wd + "/copy2cloud.log",
 		}
 		// Создаём лог файл
-		logFile, err := os.Create("copy2cloud.log")
+		if utils.FlagExists("--verbose") == true {
+			fmt.Println("Создаётся файл логгирования")
+		}
+		logFile, err := os.Create(utils.Wd + "/copy2cloud.log")
 		if err != nil {
 			fmt.Println(utils.NewError(err.Error()))
 		}
 		logFile.Close()
-		// Создаём конфиг
-		token = tokenFlag
 		newConfFile, err := os.Create(configFlag)
 		if err != nil {
 			fmt.Println(utils.NewError(err.Error()))
 			os.Exit(1)
 		}
-		data, _ := json.MarshalIndent(config, "", "\t")
-		newConfFile.Write(data)
+		bytes, _ := json.MarshalIndent(config, "", "\t")
+		if utils.FlagExists("--verbose") == true {
+			fmt.Println("Создаётся конфига в файл")
+		}
+		newConfFile.Write(bytes)
 		newConfFile.Close()
-	} else if tokenFlag == "" && confFile["token"] != "" {
-		fmt.Println(2)
+	} else if tokenFlag == "" && mainConfig["token"] != "" {
 		// Если флаг токена не устоновлен и в конфиге есть токен то будем пользоваться им
-		token = confFile["token"]
-	} else if tokenFlag != "" && confFile["token"] == "" {
+		if utils.FlagExists("--verbose") == true {
+			fmt.Println("Устоновка токена из конфигурационного файла")
+		}
+		token = mainConfig["token"]
+	} else if tokenFlag != "" && mainConfig["token"] == "" {
+		if utils.FlagExists("--verbose") == true {
+			fmt.Println("Устоновка токена из флага")
+		}
+		config, _ := utils.GetConfigFile(configFlag)
+		if utils.FlagExists("--verbose") == true {
+			fmt.Println("Устоновка токена из флага в конфиг")
+		}
+		config["token"] = tokenFlag
+		// Удаляем файл
+		os.Remove(configFlag)
+		configFile, err := os.Create(configFlag)
+		if err != nil {
+			fmt.Println(utils.NewError(err.Error()))
+		}
+		bytes, _ := json.MarshalIndent(config, "", "\t")
+		configFile.Write(bytes)
+		configFile.Close()
 		// Если флаг токена устоновлен и в конфиге нет токен то будем пользоваться токеном из флага
 		token = tokenFlag
-	} else {
-		fmt.Println(utils.NewError(confErr.Error()))
-		os.Exit(1)
+	} else if tokenFlag != "" && mainConfig["token"] != "" {
+		// Если есть токены и в и в конфиге есть что-то
+		config, _ := utils.GetConfigFile(configFlag)
+		token = tokenFlag
+		if config["token"] != tokenFlag {
+			if utils.FlagExists("--verbose") == true {
+				fmt.Println("Обновление токена из конфигурационного файла")
+			}
+			config["token"] = tokenFlag
+			// Удаляем файл
+			os.Remove(configFlag)
+			configFile, err := os.Create(configFlag)
+			if err != nil {
+				fmt.Println(utils.NewError(err.Error()))
+			}
+			bytes, _ := json.MarshalIndent(config, "", "\t")
+			configFile.Write(bytes)
+			configFile.Close()
+
+		}
+	}
+	if utils.FlagExists("--verbose") == true {
+		fmt.Println("Создание клиента")
 	}
 	diskClient := NewDiskClient(token)
 	// Потом смотрим что надо пользователю
@@ -105,6 +151,7 @@ func main() {
 Флаги:
 	token - токен,который нужен для работы с вашим яндекс диском.
 	style - стиль вывода списка файлов
+	verbose - выводить детально
 	overwrite [true,false] - флаг перезаписи ресурса.
 	permanently [true,false] - флаг безвозвратного удаления
 	by-type - флаг указывает на то что нужно искать по типу

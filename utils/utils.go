@@ -4,8 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"path/filepath"
 	"syscall"
 	"time"
+)
+
+var (
+	file, _ = os.Executable()
+	Wd      = filepath.Dir(file)
 )
 
 // Функция проверяет существует ли ресурс в папке которой находиться прогграма
@@ -91,7 +97,7 @@ func WriteLog(text string) error {
 	}
 	if config["log-file"] == "" {
 		// Мы здесь используем errors.New чтобы не уйти в рекурсию
-		return errors.New("В конфигурационном файле не определенно имя лог файла")
+		return errors.New("В конфигурационном файле не определенно имя файла логгирования")
 	}
 	// Открываем лог файл
 	LogFile, err := os.OpenFile(config["log-file"], os.O_APPEND|os.O_WRONLY, os.ModeAppend)

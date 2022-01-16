@@ -166,7 +166,7 @@ func (dclient *DiskClient) DownloadCommand() {
 }
 
 func (dclient *DiskClient) InfoCommand() {
-	if len(os.Args) == 2 || len(os.Args) == 4 {
+	if len(os.Args) == 2 || len(os.Args) == 4 || len(os.Args) == 5 {
 		// выводим информацию о диске
 		diskInfo := yandex.Disk{}
 		response, _, err := dclient.yadisk.ApiClient.SendRequest("GET", "")
@@ -187,7 +187,9 @@ func (dclient *DiskClient) InfoCommand() {
 		for folderName, path := range diskInfo.SystemFolders {
 			fmt.Printf("	%s  %s\n", folderName, path)
 		}
-	} else if len(os.Args) >= 3 {
+	} else if len(os.Args) >= 3 && utils.FlagExists("--"+os.Args[2]) == false {
+		fmt.Println(utils.FlagExists("--" + os.Args[2]))
+		fmt.Println(os.Args)
 		resource, err := dclient.yadisk.GetResource(os.Args[2])
 		if err != nil {
 			fmt.Println(err)
