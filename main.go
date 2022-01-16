@@ -15,13 +15,15 @@ func main() {
 		fmt.Println(utils.NewError(utils.ERROR_ARGUMENTS))
 		os.Exit(1)
 	}
-	if utils.FlagExists("--get-token") && utils.SystemResourceExists("templates/index.html") && utils.SystemResourceExists("templates/token.html") {
-		// Получаем токен и выходим
-		oauth2.GetToken()
-		os.Exit(0)
-	} else {
-		fmt.Println(utils.NewError("Отсуствуют файлы шаблонов"))
-		os.Exit(1)
+	if utils.FlagExists("--get-token") {
+		// Если шаблоны существуют
+		if utils.SystemResourceExists("templates/index.html") == true && utils.SystemResourceExists("templates/token.html") == true {
+			// То получаем токен и выходим
+			oauth2.GetToken()
+			os.Exit(0)
+		} else {
+			fmt.Println(utils.NewError("Отсутствуют файлы шаблонов"))
+		}
 	}
 	configFlag := utils.GetValueFlag("--config", "config.json")
 	confFile, err := utils.GetConfigFile(configFlag)
@@ -75,7 +77,7 @@ func main() {
 	case "download":
 		diskClient.DownloadCommand()
 	case "version":
-		fmt.Println("0.4")
+		fmt.Println("0.4.6")
 	case "help":
 		fmt.Print(`Доступные команды:
 	info [Путь к файлу/папке] - Выводит информацию о файле/папке, 

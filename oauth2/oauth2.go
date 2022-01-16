@@ -10,10 +10,13 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 )
 
 var (
-	tmpl                  = template.Must(template.ParseGlob("templates/*.html"))
+	file, _               = os.Executable()
+	wd                    = filepath.Dir(file)
+	tmpl                  = template.Must(template.ParseGlob(wd + "/templates/*.html"))
 	clientID              = "b15c740e54a84c3ab4dd30ba087e96d0"
 	encryptedClientSecret = "Th0QkghYdt6BWMqvTrzNpknFVv62WMvSRc4PIW-7xz5JgfCdV0cC-XKVgq3P9CNs"
 )
