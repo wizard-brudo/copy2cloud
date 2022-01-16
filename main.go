@@ -67,25 +67,25 @@ func main() {
 		}
 		token = mainConfig["token"]
 	} else if tokenFlag != "" && mainConfig["token"] == "" {
+		// Если флаг токена устоновлен и в конфиге нет токен то будем пользоваться токеном из флага
 		if utils.FlagExists("--verbose") == true {
 			fmt.Println("Устоновка токена из флага")
 		}
+		token = tokenFlag
 		config, _ := utils.GetConfigFile(configFlag)
 		if utils.FlagExists("--verbose") == true {
 			fmt.Println("Устоновка токена из флага в конфиг")
 		}
 		config["token"] = tokenFlag
-		// Удаляем файл
-		os.Remove(configFlag)
-		configFile, err := os.Create(configFlag)
+		// Открываем файл о очищаем его
+		configFile, err := os.OpenFile(configFlag, os.O_TRUNC|os.O_RDWR, os.ModePerm)
 		if err != nil {
 			fmt.Println(utils.NewError(err.Error()))
 		}
 		bytes, _ := json.MarshalIndent(config, "", "\t")
-		configFile.Write(bytes)
+		_, errw := configFile.Write(bytes)
+		fmt.Println(errw)
 		configFile.Close()
-		// Если флаг токена устоновлен и в конфиге нет токен то будем пользоваться токеном из флага
-		token = tokenFlag
 	} else if tokenFlag != "" && mainConfig["token"] != "" {
 		// Если есть токены и в и в конфиге есть что-то
 		config, _ := utils.GetConfigFile(configFlag)
@@ -95,14 +95,15 @@ func main() {
 				fmt.Println("Обновление токена из конфигурационного файла")
 			}
 			config["token"] = tokenFlag
+
 			// Удаляем файл
-			os.Remove(configFlag)
-			configFile, err := os.Create(configFlag)
+			configFile, err := os.OpenFile(configFlag, os.O_TRUNC|os.O_RDWR, os.ModePerm)
 			if err != nil {
 				fmt.Println(utils.NewError(err.Error()))
 			}
 			bytes, _ := json.MarshalIndent(config, "", "\t")
-			configFile.Write(bytes)
+			_, errW := configFile.Write(bytes)
+			fmt.Println(errW)
 			configFile.Close()
 
 		}

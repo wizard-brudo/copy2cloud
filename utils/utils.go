@@ -91,7 +91,7 @@ func GetConfigFile(configFileName string) (map[string]string, error) {
 
 func WriteLog(text string) error {
 	// Читаем конфиг
-	config, err := GetConfigFile(GetValueFlag("--config", "config.json"))
+	config, err := GetConfigFile(GetValueFlag("--config", Wd+"/config.json"))
 	if err != nil {
 		return err
 	}
